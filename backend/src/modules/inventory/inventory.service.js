@@ -30,7 +30,7 @@ export async function restockIngredient(id, quantity, userId) {
     await tx.update(ingredients).set({ currentStock: sql`${ingredients.currentStock} + ${quantity}`, updatedAt: new Date() }).where(eq(ingredients.id, id));
     await tx.insert(cashTransactions).values({ type: 'expense', category: 'Pembelian Bahan Baku',
       amount: quantity * ingredient.buyPricePerUnit, description: `Restock ${ingredient.name}: ${quantity} ${ingredient.unit}`,
-      paymentMethod: 'cash', createdBy: userId, transactionDate: new Date() });
+      paymentMethod: 'cash', createdBy: userId, transactionDate: new Date().toISOString() });
     const [updated] = await tx.select().from(ingredients).where(eq(ingredients.id, id));
     return updated;
   });

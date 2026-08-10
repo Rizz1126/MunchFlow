@@ -27,7 +27,7 @@ export async function processSale(data, userId) {
     const invoiceNumber = `INV-${now.toISOString().replace(/[-:TZ.]/g, '').slice(0, 14)}-${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`;
     const [sale] = await tx.insert(sales).values({ invoiceNumber, totalAmount, totalHpp, paymentMethod: paymentMethod || 'cash', createdBy: userId }).returning();
     await tx.insert(saleItems).values(processedItems.map((item) => ({ saleId: sale.id, menuItemId: item.menuItemId, quantity: item.quantity, unitPrice: item.unitPrice, subtotal: item.subtotal, hppPerItem: item.hppPerItem })));
-    await tx.insert(cashTransactions).values({ type: 'income', category: 'Penjualan Harian', amount: totalAmount, description: `Penjualan ${invoiceNumber}`, paymentMethod: paymentMethod || 'cash', relatedSaleId: sale.id, createdBy: userId, transactionDate: now });
+    await tx.insert(cashTransactions).values({ type: 'income', category: 'Penjualan Harian', amount: totalAmount, description: `Penjualan ${invoiceNumber}`, paymentMethod: paymentMethod || 'cash', relatedSaleId: sale.id, createdBy: userId, transactionDate: now.toISOString() });
     return { ...sale, items: processedItems };
   });
 }
