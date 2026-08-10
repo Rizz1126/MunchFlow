@@ -71,14 +71,5 @@ export default function LoginPage() {
           </Button>
         </form>
 
-        <div className="login-demo">
-          <p>Demo Credentials:</p>
-          <div className="mt-2 flex justify-center gap-4">
-            <div>Owner: <code>owner</code> / <code>owner123</code></div>
-            <div>Kasir: <code>kasir</code> / <code>kasir123</code></div>
-          </div>
-        </div>
-      </div>
-    </div>
   );
 }
