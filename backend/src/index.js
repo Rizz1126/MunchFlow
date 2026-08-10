@@ -25,6 +25,10 @@ app.use(cors({ origin: process.env.FRONTEND_URL ? process.env.FRONTEND_URL.split
 app.use(express.json());
 
 // Health check
+app.get('/', (req, res) => {
+  res.json({ status: 'ok', app: APP_NAME, message: 'MunchFlow API is running' });
+});
+
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', app: APP_NAME, timestamp: new Date().toISOString() });
 });
