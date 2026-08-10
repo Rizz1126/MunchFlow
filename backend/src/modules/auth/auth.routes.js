@@ -19,9 +19,9 @@ router.post('/login', async (req, res, next) => {
 });
 
 // GET /api/auth/me
-router.get('/me', authenticate, (req, res, next) => {
+router.get('/me', authenticate, async (req, res, next) => {
   try {
-    const user = getMe(req.user.userId);
+    const user = await getMe(req.user.userId);
     res.json(user);
   } catch (err) {
     next(err);

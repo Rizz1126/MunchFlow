@@ -1,39 +1,39 @@
-import { sql, eq, and, gte, lte } from 'drizzle-orm';
+import { sql, eq, and, gte, lt } from 'drizzle-orm';
 import db from '../../db/index.js';
 import { cashTransactions, sales, saleItems, ingredients } from '../../db/schema.js';
 
 /**
  * Get KPI data for a date range
  */
-export function getKPI(startDate, endDate) {
-  const incomeResult = db.select({
+export async function getKPI(startDate, endDate) {
+  const start = new Date(`${startDate}T00:00:00.000Z`);
+  const end = new Date(`${endDate}T00:00:00.000Z`);
+  end.setUTCDate(end.getUTCDate() + 1);
+  const [incomeResult] = await db.select({
     total: sql`COALESCE(SUM(${cashTransactions.amount}), 0)`.as('total'),
   }).from(cashTransactions)
     .where(and(
       eq(cashTransactions.type, 'income'),
-      gte(cashTransactions.transactionDate, startDate),
-      lte(cashTransactions.transactionDate, endDate),
-    ))
-    .get();
+      gte(cashTransactions.transactionDate, start),
+      lt(cashTransactions.transactionDate, end),
+    ));
 
-  const expenseResult = db.select({
+  const [expenseResult] = await db.select({
     total: sql`COALESCE(SUM(${cashTransactions.amount}), 0)`.as('total'),
   }).from(cashTransactions)
     .where(and(
       eq(cashTransactions.type, 'expense'),
-      gte(cashTransactions.transactionDate, startDate),
-      lte(cashTransactions.transactionDate, endDate),
-    ))
-    .get();
+      gte(cashTransactions.transactionDate, start),
+      lt(cashTransactions.transactionDate, end),
+    ));
 
-  const salesCountResult = db.select({
+  const [salesCountResult] = await db.select({
     count: sql`COUNT(*)`.as('count'),
   }).from(sales)
     .where(and(
-      gte(sales.createdAt, startDate),
-      lte(sales.createdAt, endDate + ' 23:59:59'),
-    ))
-    .get();
+      gte(sales.createdAt, start),
+      lt(sales.createdAt, end),
+    ));
 
   const totalIncome = incomeResult.total;
   const totalExpense = expenseResult.total;
@@ -51,19 +51,22 @@ export function getKPI(startDate, endDate) {
 /**
  * Get daily sales trend for the last N days
  */
-export function getSalesTrend(days = 14) {
-  const results = db.select({
+export async function getSalesTrend(days = 14) {
+  const d = new Date();
+  d.setDate(d.getDate() - days);
+  const cutoffDate = d.toISOString().split('T')[0];
+
+  const results = await db.select({
     date: cashTransactions.transactionDate,
     total: sql`SUM(${cashTransactions.amount})`.as('total'),
   }).from(cashTransactions)
     .where(and(
       eq(cashTransactions.type, 'income'),
       eq(cashTransactions.category, 'Penjualan Harian'),
-      gte(cashTransactions.transactionDate, sql`date('now', 'localtime', '-${sql.raw(String(days))} days')`),
+      gte(cashTransactions.transactionDate, cutoffDate),
     ))
     .groupBy(cashTransactions.transactionDate)
-    .orderBy(cashTransactions.transactionDate)
-    .all();
+    .orderBy(cashTransactions.transactionDate);
 
   return results;
 }
@@ -71,28 +74,26 @@ export function getSalesTrend(days = 14) {
 /**
  * Get expense composition for charts
  */
-export function getExpenseComposition(startDate, endDate) {
+export async function getExpenseComposition(startDate, endDate) {
   const conditions = [eq(cashTransactions.type, 'expense')];
-  if (startDate) conditions.push(gte(cashTransactions.transactionDate, startDate));
-  if (endDate) conditions.push(lte(cashTransactions.transactionDate, endDate));
+  if (startDate) conditions.push(gte(cashTransactions.transactionDate, new Date(`${startDate}T00:00:00.000Z`)));
+  if (endDate) { const end = new Date(`${endDate}T00:00:00.000Z`); end.setUTCDate(end.getUTCDate() + 1); conditions.push(lt(cashTransactions.transactionDate, end)); }
 
-  return db.select({
+  return await db.select({
     category: cashTransactions.category,
     total: sql`SUM(${cashTransactions.amount})`.as('total'),
     count: sql`COUNT(*)`.as('count'),
   }).from(cashTransactions)
     .where(and(...conditions))
     .groupBy(cashTransactions.category)
-    .orderBy(sql`total DESC`)
-    .all();
+    .orderBy(sql`total DESC`);
 }
 
 /**
  * Get low stock alerts
  */
-export function getLowStockAlerts() {
-  return db.select().from(ingredients)
+export async function getLowStockAlerts() {
+  return await db.select().from(ingredients)
     .where(lte(ingredients.currentStock, ingredients.minimumStock))
-    .orderBy(ingredients.name)
-    .all();
+    .orderBy(ingredients.name);
 }

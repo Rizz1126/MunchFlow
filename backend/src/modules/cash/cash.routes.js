@@ -5,10 +5,10 @@ import * as cashService from './cash.service.js';
 const router = Router();
 
 // GET /api/cash — List transactions with filters
-router.get('/', authenticate, (req, res, next) => {
+router.get('/', authenticate, async (req, res, next) => {
   try {
     const { type, category, startDate, endDate, limit } = req.query;
-    const transactions = cashService.getTransactions({ type, category, startDate, endDate, limit });
+    const transactions = await cashService.getTransactions({ type, category, startDate, endDate, limit });
     res.json(transactions);
   } catch (err) {
     next(err);
@@ -16,13 +16,13 @@ router.get('/', authenticate, (req, res, next) => {
 });
 
 // POST /api/cash — Create transaction
-router.post('/', authenticate, (req, res, next) => {
+router.post('/', authenticate, async (req, res, next) => {
   try {
     const { type, category, amount, description, paymentMethod, transactionDate } = req.body;
     if (!type || !category || !amount) {
       return res.status(400).json({ error: 'Type, category, dan amount wajib diisi.' });
     }
-    const tx = cashService.createTransaction({
+    const tx = await cashService.createTransaction({
       ...req.body,
       createdBy: req.user.userId,
     });
@@ -33,10 +33,10 @@ router.post('/', authenticate, (req, res, next) => {
 });
 
 // GET /api/cash/summary — Aggregated summary
-router.get('/summary', authenticate, (req, res, next) => {
+router.get('/summary', authenticate, async (req, res, next) => {
   try {
     const { startDate, endDate } = req.query;
-    const summary = cashService.getSummary(startDate, endDate);
+    const summary = await cashService.getSummary(startDate, endDate);
     res.json(summary);
   } catch (err) {
     next(err);
@@ -44,10 +44,10 @@ router.get('/summary', authenticate, (req, res, next) => {
 });
 
 // GET /api/cash/export — CSV export
-router.get('/export', authenticate, (req, res, next) => {
+router.get('/export', authenticate, async (req, res, next) => {
   try {
     const { type, category, startDate, endDate } = req.query;
-    const transactions = cashService.getTransactions({ type, category, startDate, endDate, limit: 10000 });
+    const transactions = await cashService.getTransactions({ type, category, startDate, endDate, limit: 10000 });
 
     // Build CSV manually
     const headers = ['ID', 'Tipe', 'Kategori', 'Jumlah', 'Deskripsi', 'Metode Pembayaran', 'Tanggal Transaksi', 'Dibuat'];
@@ -68,10 +68,10 @@ router.get('/export', authenticate, (req, res, next) => {
 });
 
 // GET /api/cash/expense-breakdown — For charts
-router.get('/expense-breakdown', authenticate, (req, res, next) => {
+router.get('/expense-breakdown', authenticate, async (req, res, next) => {
   try {
     const { startDate, endDate } = req.query;
-    const breakdown = cashService.getExpenseBreakdown(startDate, endDate);
+    const breakdown = await cashService.getExpenseBreakdown(startDate, endDate);
     res.json(breakdown);
   } catch (err) {
     next(err);

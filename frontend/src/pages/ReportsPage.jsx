@@ -4,7 +4,7 @@ import { Card, CardHeader, CardBody } from '../components/ui/Card';
 import { Input } from '../components/ui/Form';
 import { Button } from '../components/ui/Button';
 import { useApi } from '../hooks/useApi';
-import api from '../services/api';
+import api, { API_BASE } from '../services/api';
 import { formatCurrency, formatPercent, getStartOfMonth, getToday } from '../utils/formatCurrency';
 
 export default function ReportsPage() {
@@ -153,9 +153,18 @@ export default function ReportsPage() {
                   className="w-full" 
                   variant="outline" 
                   icon={<Download />}
-                  onClick={() => {
+                  onClick={async () => {
                     const token = localStorage.getItem('token');
-                    window.location.href = `/api/cash/export?startDate=${startDate}&endDate=${endDate}&token=${token}`;
+                    const response = await fetch(`${API_BASE}/cash/export?startDate=${startDate}&endDate=${endDate}`, {
+                      headers: { Authorization: `Bearer ${token}` },
+                    });
+                    if (!response.ok) throw new Error('Export gagal.');
+                    const url = URL.createObjectURL(await response.blob());
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = `kas_${startDate}_${endDate}.csv`;
+                    link.click();
+                    URL.revokeObjectURL(url);
                   }}
                 >
                   Download CSV

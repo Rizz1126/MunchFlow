@@ -21,7 +21,7 @@ const PORT = process.env.PORT || 3001;
 const APP_NAME = process.env.APP_NAME || 'MunchFlow';
 
 // Middleware
-app.use(cors());
+app.use(cors({ origin: process.env.FRONTEND_URL ? process.env.FRONTEND_URL.split(',').map((url) => url.trim()) : true }));
 app.use(express.json());
 
 // Health check
@@ -46,10 +46,12 @@ app.use('/api/reports', reportsRoutes);
 // Error handler
 app.use(errorHandler);
 
-app.listen(PORT, () => {
-  console.log(`\n🍔 ${APP_NAME} Backend running on http://localhost:${PORT}`);
-  console.log(`   Health: http://localhost:${PORT}/api/health`);
-  console.log(`   Config: http://localhost:${PORT}/api/config\n`);
-});
+if (process.env.VERCEL !== '1') {
+  app.listen(PORT, () => {
+    console.log(`\n🍔 ${APP_NAME} Backend running on http://localhost:${PORT}`);
+    console.log(`   Health: http://localhost:${PORT}/api/health`);
+    console.log(`   Config: http://localhost:${PORT}/api/config\n`);
+  });
+}
 
 export default app;

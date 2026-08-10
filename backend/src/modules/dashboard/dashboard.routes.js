@@ -5,7 +5,7 @@ import * as dashboardService from './dashboard.service.js';
 const router = Router();
 
 // GET /api/dashboard/kpi
-router.get('/kpi', authenticate, (req, res, next) => {
+router.get('/kpi', authenticate, async (req, res, next) => {
   try {
     const { startDate, endDate } = req.query;
     
@@ -14,7 +14,7 @@ router.get('/kpi', authenticate, (req, res, next) => {
     const start = startDate || today;
     const end = endDate || today;
 
-    const kpi = dashboardService.getKPI(start, end);
+    const kpi = await dashboardService.getKPI(start, end);
     res.json(kpi);
   } catch (err) {
     next(err);
@@ -22,10 +22,10 @@ router.get('/kpi', authenticate, (req, res, next) => {
 });
 
 // GET /api/dashboard/sales-trend
-router.get('/sales-trend', authenticate, (req, res, next) => {
+router.get('/sales-trend', authenticate, async (req, res, next) => {
   try {
     const days = parseInt(req.query.days) || 14;
-    const trend = dashboardService.getSalesTrend(days);
+    const trend = await dashboardService.getSalesTrend(days);
     res.json(trend);
   } catch (err) {
     next(err);
@@ -33,10 +33,10 @@ router.get('/sales-trend', authenticate, (req, res, next) => {
 });
 
 // GET /api/dashboard/expense-composition
-router.get('/expense-composition', authenticate, (req, res, next) => {
+router.get('/expense-composition', authenticate, async (req, res, next) => {
   try {
     const { startDate, endDate } = req.query;
-    const composition = dashboardService.getExpenseComposition(startDate, endDate);
+    const composition = await dashboardService.getExpenseComposition(startDate, endDate);
     res.json(composition);
   } catch (err) {
     next(err);
@@ -44,9 +44,9 @@ router.get('/expense-composition', authenticate, (req, res, next) => {
 });
 
 // GET /api/dashboard/alerts
-router.get('/alerts', authenticate, (req, res, next) => {
+router.get('/alerts', authenticate, async (req, res, next) => {
   try {
-    const alerts = dashboardService.getLowStockAlerts();
+    const alerts = await dashboardService.getLowStockAlerts();
     res.json(alerts);
   } catch (err) {
     next(err);

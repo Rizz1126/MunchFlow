@@ -10,10 +10,11 @@ import { fileURLToPath } from 'url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.resolve(__dirname, '../../../../.env') });
 
-const JWT_SECRET = process.env.JWT_SECRET || 'munchflow-secret';
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) throw new Error('JWT_SECRET is required.');
 
 export async function login(username, password) {
-  const user = db.select().from(users).where(eq(users.username, username)).get();
+  const [user] = await db.select().from(users).where(eq(users.username, username));
   
   if (!user) {
     throw Object.assign(new Error('Username atau password salah.'), { status: 401 });
@@ -41,13 +42,13 @@ export async function login(username, password) {
   };
 }
 
-export function getMe(userId) {
-  const user = db.select({
+export async function getMe(userId) {
+  const [user] = await db.select({
     id: users.id,
     username: users.username,
     role: users.role,
     displayName: users.displayName,
-  }).from(users).where(eq(users.id, userId)).get();
+  }).from(users).where(eq(users.id, userId));
 
   if (!user) {
     throw Object.assign(new Error('User tidak ditemukan.'), { status: 404 });
