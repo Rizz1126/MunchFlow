@@ -6,12 +6,14 @@ import { useApi } from '../hooks/useApi';
 import api from '../services/api';
 import { formatCurrency, formatDateTime } from '../utils/formatCurrency';
 import { PAYMENT_METHODS } from '../utils/constants';
+import POSAddonModal from '../components/pos/POSAddonModal';
 
 export default function POSPage() {
-  const [cart, setCart] = useState([]); // [{menuItem, quantity}]
+  const [cart, setCart] = useState([]); // [{menuItem, quantity, modifiers, modifiersTotal, note, unitPrice, cartItemId}]
   const [paymentMethod, setPaymentMethod] = useState('cash');
   const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false);
   const [lastSale, setLastSale] = useState(null);
+  const [selectedMenuForAddon, setSelectedMenuForAddon] = useState(null);
 
   const { data: menuItems, execute: fetchMenu, loading } = useApi(api.getMenuItems);
   const { execute: processSale, loading: processing } = useApi(api.processSale);
@@ -23,24 +25,39 @@ export default function POSPage() {
   // Only show active items
   const activeItems = menuItems?.filter(m => m.isActive) || [];
   
-  // Group by category for tabs (optional feature, currently showing all)
-  
-  const addToCart = (menu) => {
-    const existing = cart.find(item => item.menuItem.id === menu.id);
+  const handleMenuClick = (menu) => {
+    // Always open the modifier modal so the user can add modifiers or notes
+    setSelectedMenuForAddon(menu);
+  };
+
+  const addToCart = (menu, modifiers = [], modifiersTotal = 0, note = '') => {
+    // Create a unique ID based on menu + modifiers + note
+    const modifierIds = modifiers.map(m => m.id).sort().join('-');
+    const cartItemId = `${menu.id}-${modifierIds}-${note}`;
+
+    const existing = cart.find(item => item.cartItemId === cartItemId);
     if (existing) {
       setCart(cart.map(item => 
-        item.menuItem.id === menu.id 
+        item.cartItemId === cartItemId 
           ? { ...item, quantity: item.quantity + 1 } 
           : item
       ));
     } else {
-      setCart([...cart, { menuItem: menu, quantity: 1 }]);
+      setCart([...cart, { 
+        cartItemId,
+        menuItem: menu, 
+        quantity: 1,
+        modifiers,
+        modifiersTotal,
+        note,
+        unitPrice: menu.sellingPrice + modifiersTotal
+      }]);
     }
   };
 
-  const updateQuantity = (id, delta) => {
+  const updateQuantity = (cartItemId, delta) => {
     setCart(cart.map(item => {
-      if (item.menuItem.id === id) {
+      if (item.cartItemId === cartItemId) {
         const newQty = item.quantity + delta;
         return newQty > 0 ? { ...item, quantity: newQty } : null;
       }
@@ -48,11 +65,11 @@ export default function POSPage() {
     }).filter(Boolean));
   };
 
-  const removeFromCart = (id) => {
-    setCart(cart.filter(item => item.menuItem.id !== id));
+  const removeFromCart = (cartItemId) => {
+    setCart(cart.filter(item => item.cartItemId !== cartItemId));
   };
 
-  const cartTotal = cart.reduce((sum, item) => sum + (item.menuItem.sellingPrice * item.quantity), 0);
+  const cartTotal = cart.reduce((sum, item) => sum + (item.unitPrice * item.quantity), 0);
   const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
 
   const handleCheckout = async () => {
@@ -63,7 +80,9 @@ export default function POSPage() {
         paymentMethod,
         items: cart.map(c => ({
           menuItemId: c.menuItem.id,
-          quantity: c.quantity
+          quantity: c.quantity,
+          modifiersTotal: c.modifiersTotal,
+          note: c.note || null,
         }))
       };
       
@@ -71,7 +90,6 @@ export default function POSPage() {
       setLastSale(result);
       setCart([]);
       setIsReceiptModalOpen(true);
-      // Re-fetch menu to potentially update visually (if we had stock counts on menu)
     } catch (err) {
       alert(err.message || 'Gagal memproses transaksi. Cek stok bahan baku.');
     }
@@ -101,9 +119,9 @@ export default function POSPage() {
               <div 
                 key={menu.id} 
                 className={`pos-menu-card ${inCart ? 'in-cart' : ''}`}
-                onClick={() => addToCart(menu)}
+                onClick={() => handleMenuClick(menu)}
               >
-                <div className="pos-menu-icon">
+                <div className="pos-menu-icon relative">
                   {menu.name.charAt(0)}
                 </div>
                 <div className="pos-menu-name">{menu.name}</div>
@@ -128,15 +146,20 @@ export default function POSPage() {
             </div>
           ) : (
             cart.map(item => (
-              <div key={item.menuItem.id} className="pos-cart-item">
+              <div key={item.cartItemId} className="pos-cart-item">
                 <div className="pos-cart-item-info">
                   <div className="pos-cart-item-name">{item.menuItem.name}</div>
-                  <div className="pos-cart-item-price">{formatCurrency(item.menuItem.sellingPrice * item.quantity)}</div>
+                  {item.note && (
+                    <div className="text-[10px] text-gray-500 mt-0.5 mb-1 leading-tight">
+                      📝 {item.note}
+                    </div>
+                  )}
+                  <div className="pos-cart-item-price">{formatCurrency(item.unitPrice * item.quantity)}</div>
                 </div>
                 <div className="pos-cart-item-qty">
-                  <button onClick={() => updateQuantity(item.menuItem.id, -1)}><Minus size={14} /></button>
+                  <button onClick={() => updateQuantity(item.cartItemId, -1)}><Minus size={14} /></button>
                   <span>{item.quantity}</span>
-                  <button onClick={() => updateQuantity(item.menuItem.id, 1)}><Plus size={14} /></button>
+                  <button onClick={() => updateQuantity(item.cartItemId, 1)}><Plus size={14} /></button>
                 </div>
               </div>
             ))
@@ -198,9 +221,16 @@ export default function POSPage() {
                   <div key={idx} className="receipt-item">
                     <div>
                       <div>{item.menuName}</div>
-                      <div className="text-xs text-gray-500">{item.quantity} x {formatCurrency(item.unitPrice)}</div>
+                      {item.note && (
+                        <div className="text-[10px] text-gray-500 mt-0.5">
+                          📝 {item.note}
+                        </div>
+                      )}
+                      <div className="text-xs text-gray-500 mt-0.5">
+                        {item.quantity} x {formatCurrency(item.unitPrice + (item.modifiersTotal || 0))}
+                      </div>
                     </div>
-                    <div className="font-semibold">{formatCurrency(item.subtotal)}</div>
+                    <div className="font-semibold pt-1">{formatCurrency(item.subtotal)}</div>
                   </div>
                 ))}
               </div>
@@ -221,6 +251,14 @@ export default function POSPage() {
           </div>
         )}
       </Modal>
+
+      {/* Modifier Modal */}
+      <POSAddonModal 
+        isOpen={!!selectedMenuForAddon}
+        onClose={() => setSelectedMenuForAddon(null)}
+        menu={selectedMenuForAddon}
+        onAddToCart={addToCart}
+      />
     </div>
   );
 }

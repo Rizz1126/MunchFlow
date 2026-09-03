@@ -5,13 +5,16 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 import { errorHandler } from './middleware/errorHandler.js';
+import { injectBusinessScope } from './middleware/businessScope.js';
 import authRoutes from './modules/auth/auth.routes.js';
+import businessRoutes from './modules/business/business.routes.js';
 import dashboardRoutes from './modules/dashboard/dashboard.routes.js';
 import cashRoutes from './modules/cash/cash.routes.js';
 import inventoryRoutes from './modules/inventory/inventory.routes.js';
 import recipesRoutes from './modules/recipes/recipes.routes.js';
 import posRoutes from './modules/pos/pos.routes.js';
 import reportsRoutes from './modules/reports/reports.routes.js';
+import modifiersRoutes from './modules/modifiers/modifiers.routes.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.resolve(__dirname, '../../.env') });
@@ -40,12 +43,14 @@ app.get('/api/config', (req, res) => {
 
 // API Routes
 app.use('/api/auth', authRoutes);
+app.use('/api/businesses', businessRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/cash', cashRoutes);
 app.use('/api/ingredients', inventoryRoutes);
 app.use('/api/menu', recipesRoutes);
 app.use('/api/pos', posRoutes);
 app.use('/api/reports', reportsRoutes);
+app.use('/api/modifiers', modifiersRoutes);
 
 // Error handler
 app.use(errorHandler);

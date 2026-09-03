@@ -31,3 +31,12 @@ export const PAYMENT_METHODS = [
 export const UNITS = ['gram', 'kg', 'ml', 'liter', 'pcs', 'pack'];
 
 export const MENU_CATEGORIES = ['Minuman Kopi', 'Minuman Non-Kopi', 'Makanan', 'Snack', 'Lainnya'];
+
+export const ACCESSIBLE_MENU_OPTIONS = [
+  { key: 'dashboard', label: 'Dashboard' },
+  { key: 'pos', label: 'POS (Kasir)' },
+  { key: 'cash', label: 'Kas Masuk & Keluar' },
+  { key: 'inventory', label: 'Inventaris' },
+  { key: 'recipes', label: 'Resep & Menu' },
+  { key: 'reports', label: 'Laporan' },
+];

@@ -10,6 +10,7 @@ import { useApi } from '../hooks/useApi';
 import api from '../services/api';
 import { formatCurrency, formatNumber } from '../utils/formatCurrency';
 import { UNITS } from '../utils/constants';
+import { useBusiness } from '../contexts/BusinessContext';
 
 export default function InventoryPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -28,10 +29,11 @@ export default function InventoryPage() {
   const { execute: updateIngredient, loading: updating } = useApi(api.updateIngredient);
   const { execute: deleteIngredient } = useApi(api.deleteIngredient);
   const { execute: restock, loading: restocking } = useApi(api.restockIngredient);
+  const { selectedBusinessId } = useBusiness();
 
   useEffect(() => {
     fetchIngredients();
-  }, [fetchIngredients]);
+  }, [fetchIngredients, selectedBusinessId]);
 
   const handleOpenModal = (item = null) => {
     if (item) {

@@ -1,6 +1,10 @@
 import bcrypt from 'bcryptjs';
 import db from './index.js';
-import { users, ingredients, menuItems, recipes } from './schema.js';
+import { 
+  users, ingredients, menuItems, recipes, businesses, userBusinesses, 
+  addonGroups, addonOptions, addonRecipes, sales, saleItems, 
+  saleItemAddons, cashTransactions 
+} from './schema.js';
 
 const ingredientData = [['Kopi Bubuk Robusta', 'gram', 0.15, 5000, 500], ['Susu UHT Full Cream', 'ml', 0.025, 20000, 3000], ['Gula Pasir', 'gram', 0.015, 10000, 1000], ['Es Batu', 'gram', 0.005, 30000, 5000], ['Cup Plastik 16oz', 'pcs', 800, 200, 50], ['Coklat Bubuk', 'gram', 0.2, 3000, 300], ['Matcha Powder', 'gram', 0.8, 1000, 100], ['Sirup Vanila', 'ml', 0.1, 2000, 200], ['Sedotan', 'pcs', 100, 500, 100], ['Lid Cup', 'pcs', 200, 200, 50]];
 const menuData = [['Es Kopi Susu', 18000, 'Minuman Kopi'], ['Americano Ice', 15000, 'Minuman Kopi'], ['Matcha Latte', 22000, 'Minuman Non-Kopi'], ['Coklat Susu', 18000, 'Minuman Non-Kopi'], ['Kopi Hitam', 12000, 'Minuman Kopi'], ['Susu Vanila', 16000, 'Minuman Non-Kopi']];
@@ -8,11 +12,104 @@ const recipeData = [[1, 1, 20], [1, 2, 150], [1, 3, 15], [1, 4, 100], [1, 5, 1],
 
 async function seed() {
   console.log('🌱 Seeding Supabase database...');
-  await db.delete(recipes); await db.delete(menuItems); await db.delete(ingredients); await db.delete(users);
-  await db.insert(users).values([{ username: 'owner', passwordHash: await bcrypt.hash('owner123', 10), role: 'owner', displayName: 'Pak Budi (Owner)' }, { username: 'kasir', passwordHash: await bcrypt.hash('kasir123', 10), role: 'kasir', displayName: 'Sari (Kasir)' }]);
-  await db.insert(ingredients).values(ingredientData.map(([name, unit, buyPricePerUnit, currentStock, minimumStock]) => ({ name, unit, buyPricePerUnit, currentStock, minimumStock })));
-  await db.insert(menuItems).values(menuData.map(([name, sellingPrice, category]) => ({ name, sellingPrice, category, isActive: true })));
-  await db.insert(recipes).values(recipeData.map(([menuItemId, ingredientId, quantityNeeded]) => ({ menuItemId, ingredientId, quantityNeeded })));
-  console.log('✅ Seed complete. Login: owner/owner123 and kasir/kasir123'); process.exit(0);
+  
+  // Clear tables in reverse dependency order
+  await db.delete(cashTransactions);
+  await db.delete(saleItemAddons);
+  await db.delete(saleItems);
+  await db.delete(sales);
+  await db.delete(addonRecipes);
+  await db.delete(addonOptions);
+  await db.delete(addonGroups);
+  await db.delete(recipes); 
+  await db.delete(menuItems); 
+  await db.delete(ingredients); 
+  await db.delete(userBusinesses);
+  await db.delete(businesses);
+  await db.delete(users);
+
+  // 1. Create Business
+  const [biz] = await db.insert(businesses).values({
+    name: 'Cabang Utama',
+    address: 'Jl. Sudirman No. 1',
+    phone: '08123456789'
+  }).returning();
+
+  // 2. Create Users
+  const [owner] = await db.insert(users).values({ 
+    username: 'owner', passwordHash: await bcrypt.hash('owner123', 10), role: 'owner', displayName: 'Pak Budi (Owner)' 
+  }).returning();
+  
+  const [kasir] = await db.insert(users).values({ 
+    username: 'kasir', passwordHash: await bcrypt.hash('kasir123', 10), role: 'kasir', displayName: 'Sari (Kasir)' 
+  }).returning();
+
+  // 3. Assign Users to Business
+  await db.insert(userBusinesses).values([
+    { userId: owner.id, businessId: biz.id },
+    { userId: kasir.id, businessId: biz.id }
+  ]);
+
+  // 4. Create Ingredients
+  const insertedIngredients = await db.insert(ingredients).values(
+    ingredientData.map(([name, unit, buyPricePerUnit, currentStock, minimumStock]) => ({ 
+      name, unit, buyPricePerUnit, currentStock, minimumStock, businessId: biz.id 
+    }))
+  ).returning();
+
+  // 5. Create Menus
+  const insertedMenus = await db.insert(menuItems).values(
+    menuData.map(([name, sellingPrice, category]) => ({ 
+      name, sellingPrice, category, isActive: true, businessId: biz.id 
+    }))
+  ).returning();
+
+  // 6. Create Recipes
+  await db.insert(recipes).values(
+    recipeData.map(([menuItemIdx, ingredientIdx, quantityNeeded]) => ({ 
+      menuItemId: insertedMenus[menuItemIdx - 1].id, 
+      ingredientId: insertedIngredients[ingredientIdx - 1].id, 
+      quantityNeeded 
+    }))
+  );
+
+  // 7. Create Add-ons (Example for Es Kopi Susu)
+  const esKopiSusuId = insertedMenus[0].id;
+  const espressoId = insertedIngredients[0].id; // Kopi Bubuk
+  const vanillaSyrupId = insertedIngredients[7].id; // Sirup Vanila
+  
+  // Add-on Group: Extra Shot
+  const [addonGroup] = await db.insert(addonGroups).values({
+    menuItemId: esKopiSusuId,
+    name: 'Ekstra',
+    isRequired: false,
+    maxSelect: 2
+  }).returning();
+
+  // Add-on Options
+  const [optShot] = await db.insert(addonOptions).values({
+    addonGroupId: addonGroup.id,
+    name: 'Extra Shot Espresso',
+    extraPrice: 5000,
+  }).returning();
+
+  const [optVanilla] = await db.insert(addonOptions).values({
+    addonGroupId: addonGroup.id,
+    name: 'Extra Sirup Vanila',
+    extraPrice: 3000,
+  }).returning();
+
+  // Add-on Recipes
+  await db.insert(addonRecipes).values([
+    { addonOptionId: optShot.id, ingredientId: espressoId, quantityNeeded: 15 },
+    { addonOptionId: optVanilla.id, ingredientId: vanillaSyrupId, quantityNeeded: 15 }
+  ]);
+
+  console.log('✅ Seed complete. Login: owner/owner123 and kasir/kasir123'); 
+  process.exit(0);
 }
-seed().catch((error) => { console.error('❌ Seed failed:', error); process.exit(1); });
+
+seed().catch((error) => { 
+  console.error('❌ Seed failed:', error); 
+  process.exit(1); 
+});

@@ -14,6 +14,7 @@ import { useApi } from '../hooks/useApi';
 import api from '../services/api';
 import { formatCurrency, formatPercent, getStartOfMonth, getToday, formatDate } from '../utils/formatCurrency';
 import { useRequireRole } from '../hooks/useAuthHooks';
+import { useBusiness } from '../contexts/BusinessContext';
 
 const COLORS = ['#e63946', '#f4a261', '#e9c46a', '#2a9d8f', '#264653', '#8ab17d'];
 
@@ -25,6 +26,7 @@ export default function DashboardPage() {
   const { data: trendData, execute: fetchTrend } = useApi(api.getSalesTrend);
   const { data: expenseData, execute: fetchExpense } = useApi(api.getExpenseComposition);
   const { data: alerts, execute: fetchAlerts } = useApi(api.getAlerts);
+  const { selectedBusinessId } = useBusiness();
 
   useEffect(() => {
     let start, end = getToday();
@@ -42,14 +44,14 @@ export default function DashboardPage() {
     if (isOwner) {
       fetchExpense(start, end);
     }
-  }, [period, fetchKpi, fetchExpense, isOwner]);
+  }, [period, fetchKpi, fetchExpense, isOwner, selectedBusinessId]);
 
   useEffect(() => {
     fetchTrend(14); // Last 14 days
     if (isOwner) {
       fetchAlerts();
     }
-  }, [fetchTrend, fetchAlerts, isOwner]);
+  }, [fetchTrend, fetchAlerts, isOwner, selectedBusinessId]);
 
   const kpiItems = kpi ? [
     { 

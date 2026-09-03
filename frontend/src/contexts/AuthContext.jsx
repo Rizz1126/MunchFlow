@@ -40,6 +40,7 @@ export function AuthProvider({ children }) {
   const logout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
+    localStorage.removeItem('selectedBusinessId'); // Clear business selection on logout
     setUser(null);
   };
 

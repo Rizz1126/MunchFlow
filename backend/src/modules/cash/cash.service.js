@@ -1,6 +1,7 @@
 import { eq, and, gte, lt, desc, sql } from 'drizzle-orm';
 import db from '../../db/index.js';
 import { cashTransactions } from '../../db/schema.js';
+import { getBusinessFilter } from '../../middleware/businessScope.js';
 
 export async function createTransaction(data) {
   const [result] = await db.insert(cashTransactions).values({
@@ -10,14 +11,21 @@ export async function createTransaction(data) {
     description: data.description || null,
     paymentMethod: data.paymentMethod || 'cash',
     relatedSaleId: data.relatedSaleId || null,
+    businessId: data.businessId || null,
     createdBy: data.createdBy,
     transactionDate: data.transactionDate || new Date().toISOString().split('T')[0],
   }).returning();
   return result;
 }
 
-export async function getTransactions(filters = {}) {
+export async function getTransactions(filters = {}, req) {
   const conditions = [];
+
+  // Business filter
+  if (req) {
+    const bizFilter = getBusinessFilter(req, cashTransactions.businessId);
+    if (bizFilter) conditions.push(bizFilter);
+  }
 
   if (filters.type) {
     conditions.push(eq(cashTransactions.type, filters.type));
@@ -46,22 +54,25 @@ export async function getTransactions(filters = {}) {
   return await query;
 }
 
-export async function getSummary(startDate, endDate) {
+export async function getSummary(startDate, endDate, req) {
   const conditions = [];
+  if (req) {
+    const bizFilter = getBusinessFilter(req, cashTransactions.businessId);
+    if (bizFilter) conditions.push(bizFilter);
+  }
   if (startDate) conditions.push(gte(cashTransactions.transactionDate, startDate));
   if (endDate) { const end = new Date(`${endDate}T00:00:00.000Z`); end.setUTCDate(end.getUTCDate() + 1); conditions.push(lt(cashTransactions.transactionDate, end)); }
 
-  const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+  const incomeConditions = [eq(cashTransactions.type, 'income'), ...conditions];
+  const expenseConditions = [eq(cashTransactions.type, 'expense'), ...conditions];
 
   const [income] = await db.select({
     total: sql`COALESCE(SUM(${cashTransactions.amount}), 0)`.as('total'),
-  }).from(cashTransactions)
-    .where(whereClause ? and(eq(cashTransactions.type, 'income'), whereClause) : eq(cashTransactions.type, 'income'));
+  }).from(cashTransactions).where(and(...incomeConditions));
 
   const [expense] = await db.select({
     total: sql`COALESCE(SUM(${cashTransactions.amount}), 0)`.as('total'),
-  }).from(cashTransactions)
-    .where(whereClause ? and(eq(cashTransactions.type, 'expense'), whereClause) : eq(cashTransactions.type, 'expense'));
+  }).from(cashTransactions).where(and(...expenseConditions));
 
   return {
     totalIncome: income.total,
@@ -71,8 +82,12 @@ export async function getSummary(startDate, endDate) {
   };
 }
 
-export async function getExpenseBreakdown(startDate, endDate) {
+export async function getExpenseBreakdown(startDate, endDate, req) {
   const conditions = [eq(cashTransactions.type, 'expense')];
+  if (req) {
+    const bizFilter = getBusinessFilter(req, cashTransactions.businessId);
+    if (bizFilter) conditions.push(bizFilter);
+  }
   if (startDate) conditions.push(gte(cashTransactions.transactionDate, startDate));
   if (endDate) { const end = new Date(`${endDate}T00:00:00.000Z`); end.setUTCDate(end.getUTCDate() + 1); conditions.push(lt(cashTransactions.transactionDate, end)); }
 

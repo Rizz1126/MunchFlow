@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Plus, Edit2, ListChecks, ArrowRight, Trash2 } from 'lucide-react';
+import { Plus, Edit2, ListChecks, Trash2, Settings2 } from 'lucide-react';
 import { Card, CardHeader, CardBody } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Table } from '../components/ui/Table';
@@ -14,6 +14,7 @@ import { MENU_CATEGORIES } from '../utils/constants';
 export default function RecipesPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isRecipeModalOpen, setIsRecipeModalOpen] = useState(false);
+  const [isModifiersModalOpen, setIsModifiersModalOpen] = useState(false);
   const [editingMenu, setEditingMenu] = useState(null);
   
   // Menu Form
@@ -23,6 +24,12 @@ export default function RecipesPage() {
   const [recipeItems, setRecipeItems] = useState([]);
   const [selectedIngredient, setSelectedIngredient] = useState('');
   const [ingredientQty, setIngredientQty] = useState('');
+
+  // Global Modifiers
+  const [modifiers, setModifiers] = useState([]);
+  const [modifierForm, setModifierForm] = useState({ name: '', extraPrice: '' });
+  const [editingModifier, setEditingModifier] = useState(null);
+  const [loadingModifiers, setLoadingModifiers] = useState(false);
 
   const { data: menuItems, execute: fetchMenu, loading } = useApi(api.getMenuItems);
   const { data: ingredients, execute: fetchIngredients } = useApi(api.getIngredients);
@@ -61,6 +68,64 @@ export default function RecipesPage() {
     setSelectedIngredient('');
     setIngredientQty('');
     setIsRecipeModalOpen(true);
+  };
+
+  // --- Global Modifiers ---
+  const fetchModifiers = async () => {
+    setLoadingModifiers(true);
+    try {
+      const data = await api.getModifiers();
+      setModifiers(data || []);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoadingModifiers(false);
+    }
+  };
+
+  const handleOpenModifiersModal = () => {
+    fetchModifiers();
+    setEditingModifier(null);
+    setModifierForm({ name: '', extraPrice: '' });
+    setIsModifiersModalOpen(true);
+  };
+
+  const handleModifierSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      if (editingModifier) {
+        await api.updateModifier(editingModifier.id, {
+          name: modifierForm.name,
+          extraPrice: parseFloat(modifierForm.extraPrice) || 0,
+        });
+      } else {
+        await api.createModifier({
+          name: modifierForm.name,
+          extraPrice: parseFloat(modifierForm.extraPrice) || 0,
+        });
+      }
+      setEditingModifier(null);
+      setModifierForm({ name: '', extraPrice: '' });
+      fetchModifiers();
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
+  const handleEditModifier = (mod) => {
+    setEditingModifier(mod);
+    setModifierForm({ name: mod.name, extraPrice: mod.extraPrice });
+  };
+
+  const handleDeleteModifier = async (id) => {
+    if (window.confirm('Yakin hapus modifier ini?')) {
+      try {
+        await api.deleteModifier(id);
+        fetchModifiers();
+      } catch (err) {
+        alert(err.message);
+      }
+    }
   };
 
   const handleMenuSubmit = async (e) => {
@@ -133,7 +198,10 @@ export default function RecipesPage() {
     <div className="fade-in">
       <div className="page-header">
         <h1>Resep & Menu Jual</h1>
-        <Button icon={<Plus />} onClick={() => handleOpenMenuModal()}>Tambah Menu</Button>
+        <div className="flex gap-2">
+          <Button variant="outline" icon={<Settings2 />} onClick={handleOpenModifiersModal}>Global Modifiers</Button>
+          <Button icon={<Plus />} onClick={() => handleOpenMenuModal()}>Tambah Menu</Button>
+        </div>
       </div>
 
       <Card>
@@ -326,6 +394,97 @@ export default function RecipesPage() {
           <Button type="button" variant="ghost" onClick={() => setIsRecipeModalOpen(false)}>Tutup</Button>
           <Button type="button" loading={savingRecipe} onClick={handleRecipeSubmit}>Simpan Resep & HPP</Button>
         </div>
+      </Modal>
+
+      {/* Global Modifiers Modal */}
+      <Modal
+        isOpen={isModifiersModalOpen}
+        onClose={() => setIsModifiersModalOpen(false)}
+        title="Global Modifiers"
+        size="lg"
+      >
+        <p className="text-sm text-gray-500 mb-4">
+          Modifiers adalah opsi tambahan yang bisa dipilih kasir saat membuat pesanan (contoh: Less Ice, Extra Shot, Plastik). 
+          Berlaku untuk semua menu di bisnis aktif.
+        </p>
+
+        {/* Add/Edit Modifier Form */}
+        <form onSubmit={handleModifierSubmit} className="bg-surface-alt p-4 rounded-lg border border-border-light mb-6 flex items-end gap-3 flex-wrap">
+          <div style={{ flex: 2, minWidth: '180px' }}>
+            <Input 
+              label="Nama Modifier" 
+              required
+              value={modifierForm.name}
+              onChange={e => setModifierForm({...modifierForm, name: e.target.value})}
+              placeholder="Cth: Less Ice, Extra Shot"
+              style={{ marginBottom: 0 }}
+            />
+          </div>
+          <div style={{ flex: 1, minWidth: '120px' }}>
+            <Input 
+              label="Harga Tambahan (Rp)" 
+              type="number"
+              min="0"
+              value={modifierForm.extraPrice}
+              onChange={e => setModifierForm({...modifierForm, extraPrice: e.target.value})}
+              placeholder="0"
+              style={{ marginBottom: 0 }}
+            />
+          </div>
+          <div className="flex gap-2">
+            {editingModifier && (
+              <Button type="button" variant="ghost" onClick={() => {
+                setEditingModifier(null);
+                setModifierForm({ name: '', extraPrice: '' });
+              }}>
+                Batal
+              </Button>
+            )}
+            <Button type="submit">
+              {editingModifier ? 'Update' : 'Tambah'}
+            </Button>
+          </div>
+        </form>
+
+        {/* Modifier List */}
+        {loadingModifiers ? (
+          <div className="loading-container"><div className="spinner"></div></div>
+        ) : modifiers.length === 0 ? (
+          <div className="text-center py-8 text-gray-500 text-sm border-2 border-dashed border-gray-200 rounded-lg">
+            Belum ada modifier. Tambahkan modifier pertama di atas.
+          </div>
+        ) : (
+          <Table headers={['Nama Modifier', 'Harga Tambahan', 'Aksi']}>
+            {modifiers.map(mod => (
+              <tr key={mod.id}>
+                <td className="font-semibold">{mod.name}</td>
+                <td>
+                  {mod.extraPrice > 0 ? (
+                    <span className="text-primary font-medium">+{formatCurrency(mod.extraPrice)}</span>
+                  ) : (
+                    <span className="text-gray-400">Gratis</span>
+                  )}
+                </td>
+                <td>
+                  <div className="flex gap-2">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      icon={<Edit2 size={14} />} 
+                      onClick={() => handleEditModifier(mod)}
+                    />
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      icon={<Trash2 size={14} className="text-danger" />} 
+                      onClick={() => handleDeleteModifier(mod.id)}
+                    />
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </Table>
+        )}
       </Modal>
     </div>
   );

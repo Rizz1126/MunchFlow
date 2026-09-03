@@ -10,6 +10,7 @@ import { useApi } from '../hooks/useApi';
 import api from '../services/api';
 import { formatCurrency, formatDateTime, getToday, getStartOfMonth } from '../utils/formatCurrency';
 import { CASH_CATEGORIES, PAYMENT_METHODS } from '../utils/constants';
+import { useBusiness } from '../contexts/BusinessContext';
 
 export default function CashManagementPage() {
   const [filterType, setFilterType] = useState('');
@@ -31,6 +32,8 @@ export default function CashManagementPage() {
   const { data: summary, execute: fetchSummary } = useApi(api.getCashSummary);
   const { execute: createTx, loading: creating } = useApi(api.createCashTransaction);
 
+  const { selectedBusinessId } = useBusiness();
+
   const loadData = () => {
     fetchTransactions({ type: filterType, startDate, endDate });
     fetchSummary(startDate, endDate);
@@ -38,7 +41,7 @@ export default function CashManagementPage() {
 
   useEffect(() => {
     loadData();
-  }, [filterType, startDate, endDate]);
+  }, [filterType, startDate, endDate, selectedBusinessId]);
 
   const handleExport = async () => {
     try {

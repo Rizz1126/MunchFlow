@@ -2,10 +2,20 @@ export const API_BASE = (import.meta.env.VITE_API_URL || '/api').replace(/\/$/, 
 
 function getHeaders() {
   const token = localStorage.getItem('token');
-  return {
+  const businessId = localStorage.getItem('selectedBusinessId');
+  const headers = {
     'Content-Type': 'application/json',
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
   };
+  
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  
+  if (businessId) {
+    headers['X-Business-Id'] = businessId;
+  }
+  
+  return headers;
 }
 
 async function handleResponse(res) {
@@ -28,6 +38,34 @@ export const api = {
   
   getMe: () =>
     fetch(`${API_BASE}/auth/me`, { headers: getHeaders() }).then(handleResponse),
+
+  // Businesses
+  getBusinesses: () =>
+    fetch(`${API_BASE}/businesses`, { headers: getHeaders() }).then(handleResponse),
+  
+  createBusiness: (data) =>
+    fetch(`${API_BASE}/businesses`, { method: 'POST', headers: getHeaders(), body: JSON.stringify(data) }).then(handleResponse),
+  
+  updateBusiness: (id, data) =>
+    fetch(`${API_BASE}/businesses/${id}`, { method: 'PUT', headers: getHeaders(), body: JSON.stringify(data) }).then(handleResponse),
+  
+  deleteBusiness: (id) =>
+    fetch(`${API_BASE}/businesses/${id}`, { method: 'DELETE', headers: getHeaders() }).then(handleResponse),
+    
+  getBusinessUsers: (id) =>
+    fetch(`${API_BASE}/businesses/${id}/users`, { headers: getHeaders() }).then(handleResponse),
+
+  getAllUsers: () =>
+    fetch(`${API_BASE}/businesses/users/all`, { headers: getHeaders() }).then(handleResponse),
+
+  assignUserToBusiness: (id, userId, accessibleMenus = null) =>
+    fetch(`${API_BASE}/businesses/${id}/assign`, { method: 'POST', headers: getHeaders(), body: JSON.stringify({ userId, accessibleMenus }) }).then(handleResponse),
+
+  updateUserAccess: (businessId, userId, accessibleMenus) =>
+    fetch(`${API_BASE}/businesses/${businessId}/access/${userId}`, { method: 'PUT', headers: getHeaders(), body: JSON.stringify({ accessibleMenus }) }).then(handleResponse),
+
+  unassignUserFromBusiness: (id, userId) =>
+    fetch(`${API_BASE}/businesses/${id}/unassign/${userId}`, { method: 'DELETE', headers: getHeaders() }).then(handleResponse),
 
   // Dashboard
   getKPI: (startDate, endDate) =>
@@ -56,8 +94,8 @@ export const api = {
 
   exportCash: (filters = {}) => {
     const params = new URLSearchParams(filters);
-    const token = localStorage.getItem('token');
-    return fetch(`${API_BASE}/cash/export?${params}`, { headers: { Authorization: `Bearer ${token}` } });
+    const headers = getHeaders();
+    return fetch(`${API_BASE}/cash/export?${params}`, { headers });
   },
 
   // Ingredients
@@ -88,6 +126,44 @@ export const api = {
   
   setRecipe: (menuId, items) =>
     fetch(`${API_BASE}/menu/${menuId}/recipe`, { method: 'POST', headers: getHeaders(), body: JSON.stringify({ items }) }).then(handleResponse),
+
+  // Add-ons
+  getMenuAddons: (menuId) =>
+    fetch(`${API_BASE}/menu/${menuId}/addons`, { headers: getHeaders() }).then(handleResponse),
+  
+  createAddonGroup: (menuId, data) =>
+    fetch(`${API_BASE}/menu/${menuId}/addons`, { method: 'POST', headers: getHeaders(), body: JSON.stringify(data) }).then(handleResponse),
+  
+  updateAddonGroup: (menuId, groupId, data) =>
+    fetch(`${API_BASE}/menu/${menuId}/addons/${groupId}`, { method: 'PUT', headers: getHeaders(), body: JSON.stringify(data) }).then(handleResponse),
+  
+  deleteAddonGroup: (menuId, groupId) =>
+    fetch(`${API_BASE}/menu/${menuId}/addons/${groupId}`, { method: 'DELETE', headers: getHeaders() }).then(handleResponse),
+
+  createAddonOption: (groupId, data) =>
+    fetch(`${API_BASE}/menu/addons/${groupId}/options`, { method: 'POST', headers: getHeaders(), body: JSON.stringify(data) }).then(handleResponse),
+
+  updateAddonOption: (groupId, optionId, data) =>
+    fetch(`${API_BASE}/menu/addons/${groupId}/options/${optionId}`, { method: 'PUT', headers: getHeaders(), body: JSON.stringify(data) }).then(handleResponse),
+
+  deleteAddonOption: (groupId, optionId) =>
+    fetch(`${API_BASE}/menu/addons/${groupId}/options/${optionId}`, { method: 'DELETE', headers: getHeaders() }).then(handleResponse),
+
+  setAddonRecipe: (optionId, items) =>
+    fetch(`${API_BASE}/menu/addons/option/${optionId}/recipe`, { method: 'POST', headers: getHeaders(), body: JSON.stringify({ items }) }).then(handleResponse),
+
+  // Global Modifiers
+  getModifiers: () =>
+    fetch(`${API_BASE}/modifiers`, { headers: getHeaders() }).then(handleResponse),
+
+  createModifier: (data) =>
+    fetch(`${API_BASE}/modifiers`, { method: 'POST', headers: getHeaders(), body: JSON.stringify(data) }).then(handleResponse),
+
+  updateModifier: (id, data) =>
+    fetch(`${API_BASE}/modifiers/${id}`, { method: 'PUT', headers: getHeaders(), body: JSON.stringify(data) }).then(handleResponse),
+
+  deleteModifier: (id) =>
+    fetch(`${API_BASE}/modifiers/${id}`, { method: 'DELETE', headers: getHeaders() }).then(handleResponse),
 
   // POS
   processSale: (data) =>

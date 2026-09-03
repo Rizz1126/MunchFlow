@@ -6,16 +6,18 @@ import { Button } from '../components/ui/Button';
 import { useApi } from '../hooks/useApi';
 import api, { API_BASE } from '../services/api';
 import { formatCurrency, formatPercent, getStartOfMonth, getToday } from '../utils/formatCurrency';
+import { useBusiness } from '../contexts/BusinessContext';
 
 export default function ReportsPage() {
   const [startDate, setStartDate] = useState(getStartOfMonth());
   const [endDate, setEndDate] = useState(getToday());
 
   const { data: pnl, execute: fetchPnL, loading } = useApi(api.getPnL);
+  const { selectedBusinessId } = useBusiness();
 
   useEffect(() => {
     fetchPnL(startDate, endDate);
-  }, [startDate, endDate, fetchPnL]);
+  }, [startDate, endDate, fetchPnL, selectedBusinessId]);
 
   if (loading && !pnl) {
     return <div className="loading-container"><div className="spinner"></div></div>;
