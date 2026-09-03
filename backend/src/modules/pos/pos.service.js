@@ -1,4 +1,4 @@
-import { eq, inArray, desc, and } from 'drizzle-orm';
+import { eq, inArray, desc, and, sql } from 'drizzle-orm';
 import db from '../../db/index.js';
 import { sales, saleItems, menuItems, recipes, ingredients, cashTransactions } from '../../db/schema.js';
 
